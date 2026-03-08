@@ -4,7 +4,7 @@ import { useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { Navbar } from "@/components/shared/Navbar";
 import { motion } from "framer-motion";
-import { Code, Download, ExternalLink, ArrowLeft } from "lucide-react";
+import { Code, Download, ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { DEMO_WEBSITE_HTML } from "@/lib/demo-data";
 
@@ -13,9 +13,10 @@ export default function WebsitePreviewPage() {
     const id = params.id as string;
     const [html, setHtml] = useState<string>("");
     const [loading, setLoading] = useState(true);
+    const isDemo = id === "demo-project-001";
 
     useEffect(() => {
-        if (id === "demo-project-001") {
+        if (isDemo) {
             setHtml(DEMO_WEBSITE_HTML);
             setLoading(false);
             return;
@@ -26,19 +27,30 @@ export default function WebsitePreviewPage() {
             .then(res => res.json())
             .then(data => {
                 const websiteAsset = data.assets?.find((a: { asset_type: string }) => a.asset_type === "website_html");
-                if (websiteAsset?.s3_url?.startsWith("data:")) {
-                    const base64 = websiteAsset.s3_url.split(",")[1];
-                    setHtml(atob(base64));
+                if (websiteAsset?.s3_url) {
+                    if (websiteAsset.s3_url.startsWith("data:")) {
+                        // Decode base64 data URL
+                        const base64 = websiteAsset.s3_url.split(",")[1];
+                        setHtml(atob(base64));
+                    } else if (websiteAsset.s3_url.startsWith("http")) {
+                        // Fetch from S3 URL
+                        fetch(websiteAsset.s3_url)
+                            .then(r => r.text())
+                            .then(text => setHtml(text))
+                            .catch(() => setHtml(generatePlaceholderHtml()));
+                    } else {
+                        setHtml(generatePlaceholderHtml());
+                    }
                 } else {
-                    setHtml(DEMO_WEBSITE_HTML);
+                    setHtml(generatePlaceholderHtml());
                 }
                 setLoading(false);
             })
             .catch(() => {
-                setHtml(DEMO_WEBSITE_HTML);
+                setHtml(generatePlaceholderHtml());
                 setLoading(false);
             });
-    }, [id]);
+    }, [id, isDemo]);
 
     const handleCopyHtml = () => {
         navigator.clipboard.writeText(html);
@@ -61,7 +73,7 @@ export default function WebsitePreviewPage() {
                 <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <Link
-                            href={id === "demo-project-001" ? "/demo" : `/project/${id}`}
+                            href={isDemo ? "/demo" : `/project/${id}`}
                             className="flex items-center gap-1 text-sm text-[#8892a4] hover:text-white transition"
                         >
                             <ArrowLeft className="w-4 h-4" />
@@ -91,7 +103,9 @@ export default function WebsitePreviewPage() {
 
             <main className="max-w-7xl mx-auto px-4 py-6">
                 {loading ? (
-                    <div className="skeleton h-[600px] rounded-xl" />
+                    <div className="flex items-center justify-center h-[600px]">
+                        <Loader2 className="w-8 h-8 animate-spin text-[#FF9900]" />
+                    </div>
                 ) : (
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
@@ -109,4 +123,18 @@ export default function WebsitePreviewPage() {
             </main>
         </div>
     );
+}
+
+function generatePlaceholderHtml(): string {
+    return `<!DOCTYPE html>
+<html><head><style>
+  body { font-family: system-ui, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #0a0e1a; color: #8892a4; }
+  .msg { text-align: center; padding: 2rem; }
+  h2 { color: #FF9900; font-size: 1.5rem; margin-bottom: 0.5rem; }
+</style></head><body>
+  <div class="msg">
+    <h2>Website Not Generated Yet</h2>
+    <p>The brand website will appear here once the AI pipeline completes.</p>
+  </div>
+</body></html>`;
 }

@@ -697,65 +697,136 @@ function BrandTab({ analysis }: { analysis: AnalysisResults }) {
 
 // ===== Assets Tab =====
 function AssetsTab({ projectId, assets, isDemo }: { projectId: string; assets: GeneratedAsset[]; isDemo: boolean }) {
+    const websiteAsset = assets.find(a => a.asset_type === "website_html");
+    const mockupAsset = assets.find(a => a.asset_type === "product_mockup");
+    const pdfAsset = assets.find(a => a.asset_type === "pdf_report");
+
+    const handleDownloadReport = () => {
+        if (isDemo) {
+            // For demo, generate a demo report text and download it
+            const demoReport = `VYAPAR.AI — DEMO ANALYSIS REPORT\n${"=".repeat(50)}\nThis is a demo report. Create a real project to get a full downloadable report.\n`;
+            const blob = new Blob([demoReport], { type: "text/plain" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "vyapar_demo_report.txt";
+            a.click();
+            URL.revokeObjectURL(url);
+        } else if (pdfAsset?.s3_url && pdfAsset.s3_url.startsWith("data:")) {
+            // Data URL download
+            const a = document.createElement("a");
+            a.href = pdfAsset.s3_url;
+            a.download = "analysis_report.txt";
+            a.click();
+        } else {
+            // Download from API
+            window.open(`/api/projects/${projectId}/download-report`, "_blank");
+        }
+    };
+
     return (
         <div className="space-y-6">
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {/* Generated Website */}
-                <div className="bg-[#1a2235] border border-[#1e2d40] rounded-xl p-6">
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0 }}
+                    className="bg-[#1a2235] border border-[#1e2d40] rounded-xl p-6 hover:border-[#00d4ff]/30 transition"
+                >
                     <div className="w-12 h-12 bg-[#00d4ff]/10 rounded-xl flex items-center justify-center mb-4">
                         <Globe className="w-6 h-6 text-[#00d4ff]" />
                     </div>
                     <h4 className="font-bold text-white mb-2">Brand Website</h4>
                     <p className="text-sm text-[#8892a4] mb-4">AI-generated landing page for your brand</p>
-                    <Link
-                        href={`/project/${projectId}/website`}
-                        className="flex items-center gap-2 text-sm text-[#FF9900] hover:text-[#e68a00] font-medium"
-                    >
-                        <ExternalLink className="w-4 h-4" />
-                        Preview Website
-                    </Link>
-                </div>
+                    {isDemo || websiteAsset ? (
+                        <Link
+                            href={`/project/${projectId}/website`}
+                            className="flex items-center gap-2 text-sm text-[#FF9900] hover:text-[#e68a00] font-medium"
+                        >
+                            <ExternalLink className="w-4 h-4" />
+                            Preview Website
+                        </Link>
+                    ) : (
+                        <span className="text-sm text-[#8892a4] flex items-center gap-2">
+                            <span className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />
+                            Generating...
+                        </span>
+                    )}
+                </motion.div>
 
                 {/* PDF Report */}
-                <div className="bg-[#1a2235] border border-[#1e2d40] rounded-xl p-6">
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1 }}
+                    className="bg-[#1a2235] border border-[#1e2d40] rounded-xl p-6 hover:border-[#FF9900]/30 transition"
+                >
                     <div className="w-12 h-12 bg-[#FF9900]/10 rounded-xl flex items-center justify-center mb-4">
                         <Download className="w-6 h-6 text-[#FF9900]" />
                     </div>
                     <h4 className="font-bold text-white mb-2">Analysis Report</h4>
                     <p className="text-sm text-[#8892a4] mb-4">Complete market analysis & business plan</p>
-                    {isDemo ? (
-                        <span className="text-sm text-[#8892a4]">Available with real analysis</span>
-                    ) : (
-                        <a href="#" className="flex items-center gap-2 text-sm text-[#FF9900] hover:text-[#e68a00] font-medium">
-                            <Download className="w-4 h-4" />
-                            Download PDF
-                        </a>
-                    )}
-                </div>
+                    <button
+                        onClick={handleDownloadReport}
+                        className="flex items-center gap-2 text-sm text-[#FF9900] hover:text-[#e68a00] font-medium"
+                    >
+                        <Download className="w-4 h-4" />
+                        Download Report
+                    </button>
+                </motion.div>
 
                 {/* Product Mockup */}
-                <div className="bg-[#1a2235] border border-[#1e2d40] rounded-xl p-6">
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 }}
+                    className="bg-[#1a2235] border border-[#1e2d40] rounded-xl p-6 hover:border-[#00c853]/30 transition"
+                >
                     <div className="w-12 h-12 bg-[#00c853]/10 rounded-xl flex items-center justify-center mb-4">
                         <Palette className="w-6 h-6 text-[#00c853]" />
                     </div>
                     <h4 className="font-bold text-white mb-2">Product Mockup</h4>
                     <p className="text-sm text-[#8892a4] mb-4">AI-generated product visualization</p>
-                    {isDemo ? (
+                    {mockupAsset?.s3_url ? (
+                        <a
+                            href={mockupAsset.s3_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 text-sm text-[#FF9900] hover:text-[#e68a00] font-medium"
+                        >
+                            <ExternalLink className="w-4 h-4" />
+                            View Mockup
+                        </a>
+                    ) : isDemo ? (
                         <span className="text-sm text-[#8892a4]">Available with real analysis</span>
                     ) : (
-                        assets.filter(a => a.asset_type === "product_mockup").length > 0 ? (
-                            <a href={assets.find(a => a.asset_type === "product_mockup")?.s3_url} target="_blank" rel="noopener noreferrer"
-                                className="flex items-center gap-2 text-sm text-[#FF9900] hover:text-[#e68a00] font-medium"
-                            >
-                                <ExternalLink className="w-4 h-4" />
-                                View Mockup
-                            </a>
-                        ) : (
-                            <span className="text-sm text-[#8892a4]">Generating...</span>
-                        )
+                        <span className="text-sm text-[#8892a4] flex items-center gap-2">
+                            <span className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />
+                            Generating...
+                        </span>
                     )}
-                </div>
+                </motion.div>
             </div>
+
+            {/* Mockup Preview (if available) */}
+            {mockupAsset?.s3_url && (
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-[#1a2235] border border-[#1e2d40] rounded-xl p-6"
+                >
+                    <h3 className="text-lg font-bold text-white mb-4">Product Mockup Preview</h3>
+                    <div className="flex justify-center">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                            src={mockupAsset.s3_url}
+                            alt="Product Mockup"
+                            className="max-w-md w-full h-auto rounded-lg border border-[#1e2d40]"
+                        />
+                    </div>
+                </motion.div>
+            )}
         </div>
     );
 }

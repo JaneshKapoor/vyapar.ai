@@ -12,8 +12,12 @@ export function getDb() {
     return sql;
 }
 
-export async function query(sqlStr: string, params?: unknown[]) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function query(sqlStr: string, params?: unknown[]): Promise<Record<string, any>[]> {
     const db = getDb();
-    // Use the tagged template function properly via .query() method
-    return db.query(sqlStr, params);
+    // Use sql.query() for conventional string-based queries and cast to array
+    const result = await db.query(sqlStr, params);
+    // Neon query returns rows as array-like, ensure it's a proper array
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return Array.isArray(result) ? result : (result as unknown as Record<string, any>[]);
 }
