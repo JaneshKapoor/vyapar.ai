@@ -224,8 +224,16 @@ function MarketTab({ analysis }: { analysis: AnalysisResults }) {
                             </defs>
                             <CartesianGrid strokeDasharray="3 3" stroke="#1e2d40" />
                             <XAxis dataKey="month" stroke="#8892a4" fontSize={12} />
-                            <YAxis stroke="#8892a4" fontSize={12} />
-                            <Tooltip contentStyle={{ background: "#1a2235", border: "1px solid #1e2d40", borderRadius: 8, color: "#f0f4f8" }} />
+                            <YAxis
+                                stroke="#8892a4"
+                                fontSize={12}
+                                label={{ value: 'Search Interest Index', angle: -90, position: 'insideLeft', fill: '#8892a4', style: { textAnchor: 'middle' } }}
+                            />
+                            <Tooltip
+                                contentStyle={{ background: "#1a2235", border: "1px solid #1e2d40", borderRadius: 8, color: "#f0f4f8" }}
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                formatter={(value: any) => [value || 0, "Index"]}
+                            />
                             <Area type="monotone" dataKey="value" stroke="#FF9900" fill="url(#colorValue)" strokeWidth={2} />
                         </AreaChart>
                     </ResponsiveContainer>
@@ -701,7 +709,9 @@ function AssetsTab({ projectId, assets, isDemo }: { projectId: string; assets: G
     const mockupAsset = assets.find(a => a.asset_type === "product_mockup");
     const pdfAsset = assets.find(a => a.asset_type === "pdf_report");
 
-    const handleDownloadReport = () => {
+    const [isDownloading, setIsDownloading] = useState(false);
+
+    const handleDownloadReport = async () => {
         if (isDemo) {
             // For demo, generate a demo report text and download it
             const demoReport = `VYAPAR.AI — DEMO ANALYSIS REPORT\n${"=".repeat(50)}\nThis is a demo report. Create a real project to get a full downloadable report.\n`;
@@ -716,11 +726,36 @@ function AssetsTab({ projectId, assets, isDemo }: { projectId: string; assets: G
             // Data URL download
             const a = document.createElement("a");
             a.href = pdfAsset.s3_url;
-            a.download = "analysis_report.txt";
+            a.download = "analysis_report.pdf";
             a.click();
         } else {
-            // Download from API
-            window.open(`/api/projects/${projectId}/download-report`, "_blank");
+            // Download from API securely with proper filename
+            try {
+                setIsDownloading(true);
+                const response = await fetch(`/api/projects/${projectId}/download-report`);
+                if (!response.ok) throw new Error("Download failed");
+                const blob = await response.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                // Get filename from content-disposition header if available, else fallback
+                const contentDisposition = response.headers.get("content-disposition");
+                let filename = "vyapar_report.pdf";
+                if (contentDisposition) {
+                    const match = contentDisposition.match(/filename="?([^"]+)"?/);
+                    if (match && match[1]) filename = match[1];
+                }
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            } catch (error) {
+                console.error("Failed to download PDF:", error);
+                alert("Failed to download report. Please try again.");
+            } finally {
+                setIsDownloading(false);
+            }
         }
     };
 
